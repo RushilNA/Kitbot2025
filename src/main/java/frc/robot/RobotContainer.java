@@ -8,19 +8,27 @@ import static edu.wpi.first.units.Units.*;
 
 import com.ctre.phoenix6.swerve.SwerveModule.DriveRequestType;
 import com.ctre.phoenix6.swerve.SwerveRequest;
+import com.pathplanner.lib.auto.AutoBuilder;
+import com.pathplanner.lib.auto.NamedCommands;
 
 import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine.Direction;
-
+import frc.robot.command.autorotate;
 import frc.robot.generated.TunerConstants;
 import frc.robot.subsystems.CommandSwerveDrivetrain;
 import frc.robot.subsystems.shoot;
+import frc.robot.subsystems.vision;
 import frc.robot.subsystems.shoot;
 
 public class RobotContainer {
+      private final SendableChooser<Command> autoChooser;
+
+    
     private double MaxSpeed = TunerConstants.kSpeedAt12Volts.in(MetersPerSecond); // kSpeedAt12Volts desired top speed
     private double MaxAngularRate = RotationsPerSecond.of(0.75).in(RadiansPerSecond); // 3/4 of a rotation per second max angular velocity
 
@@ -37,24 +45,34 @@ public class RobotContainer {
 
 
     public final CommandSwerveDrivetrain drivetrain = TunerConstants.createDrivetrain();
+    private vision vision = new vision();
     private shoot m_Shoot= new shoot();
 
     public RobotContainer() {
+        
         configureBindings();
+        NamedCommands.registerCommand("shoot",m_Shoot.shootcmd(-.05));
+        NamedCommands.registerCommand("Autoshoot",m_Shoot.Autoshootcmd(.2));
+        autoChooser = AutoBuilder.buildAutoChooser("Tests");
+        SmartDashboard.putData("Auto Mode", autoChooser);
         
     }
 
     private void configureBindings() {
+        Command autorotate = new autorotate(vision, drivetrain, ()->-joystick.getLeftY()*MaxSpeed,()-> -joystick.getLeftX()*MaxSpeed, ()->-joystick.getRightX()*MaxAngularRate);
+        
         joystick.rightBumper().whileTrue(m_Shoot.shootcmd(0.3)).whileFalse(m_Shoot.shootcmd(-0.05));
 
         joystick.leftBumper().whileTrue(m_Shoot.shootcmd(0.15)).whileFalse(m_Shoot.shootcmd(-0.05));
+        
+        joystick.x().whileTrue(autorotate);
 
         // Note that X is defined as forward according to WPILib convention,
         // and Y is defined as to the left according to WPILib convention.
         drivetrain.setDefaultCommand(
             // Drivetrain will execute this command periodically
             drivetrain.applyRequest(() ->
-                drive.withVelocityX(-joystick.getLeftY() * MaxSpeed) // Drive forward with negative Y (forward)
+                drive.withVelocityX(-joystick.getLeftY() * MaxSpeed) // Drive forward with negative Y  (forward)
                     .withVelocityY(-joystick.getLeftX() * MaxSpeed) // Drive left with negative X (left)
                     .withRotationalRate(-joystick.getRightX() * MaxAngularRate) // Drive counterclockwise with negative X (left)
             )
@@ -79,6 +97,6 @@ public class RobotContainer {
     }
 
     public Command getAutonomousCommand() {
-        return Commands.print("No autonomous command configured");
-    }
+        return autoChooser.getSelected();
+}
 }
